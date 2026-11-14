@@ -1,0 +1,36 @@
+name: Monthly Google Trends
+
+on:
+  schedule:
+    - cron: "0 7 1 * *"   # 07:00 UTC on the 1st of every month
+  workflow_dispatch:        # lets you run it manually from the Actions tab
+
+jobs:
+  pull-and-email:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        # urllib3<2 avoids a known pytrends retry error with urllib3 v2
+        run: pip install pytrends pandas openpyxl "urllib3<2"
+
+      - name: Pull data, build Excel, email it
+        env:
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASS: ${{ secrets.SMTP_PASS }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
+        run: python trends_monthly.py
+
+      - name: Keep a copy of the Excel file
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: google-trends-xlsx
+          path: google_trends_*.xlsx
+          if-no-files-found: ignore
